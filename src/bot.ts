@@ -1,7 +1,6 @@
 import {Telegraf} from 'telegraf';
 import {BOT_TOKEN, OPENAI_API_KEY} from '../env';
 import {botAnswers} from "./botAnswers";
-import {OpenAILlmProvider} from "./llm/provider";
 import {GameState, Player} from "./types";
 import {DndLlm} from "./dnd/dndLlm";
 
