@@ -38,6 +38,11 @@ export class Mage extends Person {
         console.log(`Regenerated ${amount} mana. Current mana: ${this.mana}`);
     }
 
+    // Add the missing method
+    public increaseIntelligence(amount: number): void {
+        super.increaseArmor(amount);
+    }
+
     // Override toString to include mana
     public toString(): string {
         return `Mage: ${super.toString()}, Mana: ${this.mana}/${this.maxMana}`;

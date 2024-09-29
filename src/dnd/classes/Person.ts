@@ -139,6 +139,12 @@ export class Person {
         return this.armor;
     }
 
+    public increaseIntelligence(amount: number): void {
+        this.intelligence += amount;
+        console.log(`Intelligence increased by ${amount}. New intelligence: ${this.intelligence}`);
+    }
+
+
     public toString(): string {
         return `HP: ${this.hp}/${this.maxHp}, Gold: ${this.gold}, Strength: ${this.strength}, Armor: ${this.armor}`;
     }

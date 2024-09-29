@@ -1,7 +1,6 @@
-// /src/dnd/items
+import { Item } from "../types";  
+import { Person } from "../dnd/classes/Person";
 
-import { Item } from "../types";
-import { Player } from "../types";
 export const shopItems: Item[] = [
     {
         id: 1,
@@ -9,8 +8,8 @@ export const shopItems: Item[] = [
         description: "Restores 50 HP.",
         type: "potion",
         value: 30,
-        effect: (player) => {
-            player.person.restoreHpBy(50);
+        effect: (person: Person) => {
+            person.restoreHpBy(50);
         },
     },
     {
@@ -19,8 +18,8 @@ export const shopItems: Item[] = [
         description: "Increases strength by 2.",
         type: "weapon",
         value: 100,
-        effect: (player) => {
-            player.person.increaseStrength(2);
+        effect: (person: Person) => {
+            person.increaseStrength(2);
         },
     },
     {
@@ -29,8 +28,8 @@ export const shopItems: Item[] = [
         description: "Increases armor by 2.",
         type: "armor",
         value: 80,
-        effect: (player) => {
-            player.person.increaseArmor(2);
+        effect: (person: Person) => {
+            person.increaseArmor(2);
         },
     },
     // Add more items as needed

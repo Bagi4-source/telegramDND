@@ -1,5 +1,3 @@
-// src/dnd/classes/Warrior.ts
-
 import { Person } from "./Person";
 
 export class Warrior extends Person {

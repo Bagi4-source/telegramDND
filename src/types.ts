@@ -1,5 +1,5 @@
 import {Person} from "./dnd/classes";
-import { MonsterMove } from "./dnd/monsters/Monsters";
+import { Monster, MonsterMove } from "./dnd/monsters/Monsters";
 
 export interface Item {
     id: number;
@@ -12,9 +12,10 @@ export interface Item {
 
 
 export interface GameState {
-    players: { [key: string | number]: Player };
-    turnOrder: (string | number)[];
+    players: { [id: number]: Player };
+    turnOrder: number[];
     currentTurn: number;
+    currentMonster: Monster | null; 
 }
 
 export interface Player {
@@ -22,17 +23,7 @@ export interface Player {
     name: string;
     person: Person;
     initiative: number;
-    gold: number; 
-    inventory: Item[]; 
+    gold: number;          
+    inventory: Item[];     
 }
 
-export interface Monster {
-    id: string | number;
-    name: string;
-    description: string;
-    hp: number;
-    initiative: number;
-    moves: MonsterMove[];
-    attack(target: Monster): void;
-    useMove(move: MonsterMove, target: Monster): void;
-}

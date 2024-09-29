@@ -94,7 +94,7 @@ async function presentCombatOptions(ctx: Context, player: Player, monster: Monst
         buttons.push(Markup.button.callback('Cast Spell', 'combat_cast_spell'));
     }
 
-    // Players with armor can block
+    // Warriors with armor can block
     if (player.person instanceof Warrior && player.person.hasArmor()) {
         buttons.push(Markup.button.callback('Block', 'combat_block'));
     }
@@ -163,7 +163,7 @@ async function monsterTurn(ctx: Context, player: Player, monster: Monster, gameS
                 players: {},
                 turnOrder: [],
                 currentTurn: 0,
-                currentMonster: null,
+                currentMonster: null, // Initialize with null
             };
             await ctx.reply(botAnswers.gameStarted);
         } else {
@@ -200,8 +200,10 @@ async function monsterTurn(ctx: Context, player: Player, monster: Monster, gameS
         const newPlayer: Player = {
             id: playerId,
             name: playerName,
-            person: new Person(100, 100, 10, 10, 10, initiative),
-            initiative
+            person: new Person(100, 100, 10, 10, 10, initiative), // Updated to include gold and inventory
+            initiative,
+            gold: 0,               // Added property
+            inventory: [],         // Added property
         };
 
         gameStates[chatId].players[playerId] = newPlayer;
@@ -241,10 +243,12 @@ async function monsterTurn(ctx: Context, player: Player, monster: Monster, gameS
                     player.person = new Mage(100, 100, 100, 5, 7, 15, player.initiative);
                     break;
                 case 'rogue':
-                    player.person = new Rogue(120, 120, 50, 6, 18, 10, player.initiative);
+                    // Corrected: Remove the extra argument 'player.initiative'
+                    player.person = new Rogue(120, 120, 50, 6, 18, 10);
                     break;
                 case 'warrior':
-                    player.person = new Warrior(200, 180, 5, 20, 10, 3, player.initiative);
+                    // Corrected: Remove the extra argument 'player.initiative'
+                    player.person = new Warrior(200, 180, 5, 20, 10, 3);
                     break;
                 default:
                     await ctx.reply("Ошибка: неверный класс.");
@@ -478,8 +482,6 @@ async function monsterTurn(ctx: Context, player: Player, monster: Monster, gameS
         await ctx.reply(`You have used ${item.name}.`);
     });
 
-    // Single 'class' action handler already defined above
-
     // Handle 'combat_attack', 'combat_cast_spell', 'combat_block'
     bot.action('combat_attack', async (ctx) => {
         const chatId = ctx.chat?.id;
@@ -625,15 +627,103 @@ async function monsterTurn(ctx: Context, player: Player, monster: Monster, gameS
         player.person.setBlocking(false);
     });
 
-    // Combat Helpers in Person Class
-    // Add these methods to Person class if not already present
-    // public setBlocking(status: boolean): void {
-    //     this.isBlocking = status;
-    // }
+    // Команда для показа состояния игры
+    bot.command('state', async (ctx) => {
+        const chatId: number = ctx.chat.id; // chatId is number
 
-    // public isBlocking(): boolean {
-    //     return this.isBlocking;
-    // }
+        if (!gameStates[chatId]) {
+            await ctx.reply(botAnswers.notStarted);
+            return;
+        }
+
+        const gameState = gameStates[chatId];
+        const playerStates = Object.values(gameState.players)
+            .map(player => `${player.name}: ${player.person.toString()}, Initiative ${player.initiative}`)
+            .join('\n');
+
+        await ctx.reply(`Состояние игры:\n${playerStates}`);
+    });
+
+    // Команда для окончания игры
+    bot.command('endgame', async (ctx) => {
+        const chatId: number = ctx.chat.id; // chatId is number
+
+        if (gameStates[chatId]) {
+            delete gameStates[chatId];
+            await ctx.reply(botAnswers.endGame.success);
+        } else {
+            await ctx.reply(botAnswers.endGame.notStarted);
+        }
+    });
+
+    // Команда для хода игрока
+    bot.command('turn', async (ctx) => {
+        const chatId: number = ctx.chat.id; // chatId is number
+
+        if (!gameStates[chatId]) {
+            await ctx.reply(botAnswers.notStarted);
+            return;
+        }
+
+        const gameState = gameStates[chatId];
+        if (gameState.turnOrder.length === 0) {
+            await ctx.reply(botAnswers.turn.emptyPlayerOrder);
+            return;
+        }
+
+        const currentTurn = gameState.currentTurn;
+        const currentPlayerId = gameState.turnOrder[currentTurn];
+        const player = gameState.players[currentPlayerId];
+
+        await ctx.reply(botAnswers.turn.playerTurn(player.name));
+
+        gameState.currentTurn = (currentTurn + 1) % gameState.turnOrder.length;
+    });
+
+    bot.command('narrate', async (ctx) => {
+        const chatId: number = ctx.chat.id; // chatId is number
+
+        if (!gameStates[chatId]) {
+            await ctx.reply(botAnswers.notStarted);
+            return;
+        }
+        await ctx.sendChatAction('typing');
+
+        const gameState = gameStates[chatId];
+        const narration = await dndLlm.getNarration(
+            Object.values(gameState.players),
+            gameState.players[gameState.turnOrder[gameState.currentTurn]]
+        );
+
+        await ctx.reply(narration);
+    });
+
+    bot.on('text', async (ctx) => {
+        const chatId: number = ctx.chat.id; // chatId is number
+        const userId = ctx.from.id;
+
+        if (!gameStates[chatId]) {
+            await ctx.reply(botAnswers.notStarted);
+            return;
+        }
+
+        const gameState = gameStates[chatId];
+        if (gameState.turnOrder.length === 0) {
+            await ctx.reply(botAnswers.turn.emptyPlayerOrder);
+            return;
+        }
+
+        const currentTurn = gameState.currentTurn;
+        const currentPlayerId = gameState.turnOrder[currentTurn];
+
+        if (currentPlayerId !== userId) {
+            await ctx.reply(botAnswers.turn.anotherPlayerTurn);
+            return;
+        }
+
+        const player = gameState.players[currentPlayerId];
+        // Here you can add logic for processing the player's text input
+    });
 
     await bot.launch();
 
