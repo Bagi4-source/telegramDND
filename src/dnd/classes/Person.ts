@@ -44,4 +44,8 @@ export class Person {
     public getIntelligence() {
         return this.intelligence;
     }
+
+    public toString() {
+        return `HP: ${this.hp}/${this.maxHp}, Сила: ${this.strength}, Ловкость: ${this.agility}, Интеллект: ${this.intelligence}`;
+    }
 }

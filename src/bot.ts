@@ -3,6 +3,7 @@ import {BOT_TOKEN, OPENAI_API_KEY} from '../env';
 import {botAnswers} from "./botAnswers";
 import {GameState, Player} from "./types";
 import {DndLlm} from "./dnd/dndLlm";
+import {Person} from "./dnd/classes";
 
 const bot = new Telegraf(BOT_TOKEN);
 
@@ -68,8 +69,8 @@ const dndLlm = new DndLlm({
         const newPlayer: Player = {
             id: playerId,
             name: playerName,
-            hp: 100, // Стандартное значение здоровья
-            initiative: Math.floor(Math.random() * 20) + 1 // Инициатива от 1 до 20
+            person: new Person(100, 100, 100, 100),
+            initiative: Math.floor(Math.random() * 20) + 1
         };
 
         gameStates[chatId].players[playerId] = newPlayer;
@@ -89,7 +90,7 @@ const dndLlm = new DndLlm({
 
         const gameState = gameStates[chatId];
         const playerStates = Object.values(gameState.players)
-            .map(player => `${player.name}: HP ${player.hp}, Initiative ${player.initiative}`)
+            .map(player => `${player.name}: ${player.person.toString()}, Initiative ${player.initiative}`)
             .join('\n');
 
         await ctx.reply(`Состояние игры:\n${playerStates}`);

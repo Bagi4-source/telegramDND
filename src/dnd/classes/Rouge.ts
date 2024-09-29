@@ -16,4 +16,8 @@ export class Rogue extends Person {
         this.stealth += amount;
         console.log("Скрытность увеличена.");
     }
+
+    public toString() {
+        return `Плут: ${super.toString()}, Скрытность: ${this.stealth}`;
+    }
 }

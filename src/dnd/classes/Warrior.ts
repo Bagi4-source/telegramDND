@@ -18,4 +18,8 @@ export class Warrior extends Person {
         this.armor += amount;
         console.log("Броня увеличена.");
     }
+
+    public toString() {
+        return `Воин: ${super.toString()}, Броня: ${this.armor}`;
+    }
 }

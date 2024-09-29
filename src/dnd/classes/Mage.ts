@@ -22,4 +22,8 @@ export class Mage extends Person {
     public regenerateMana(amount: number) {
         this.mana = Math.min(this.mana + amount, this.maxMana);
     }
+
+    public toString() {
+        return `Маг: ${super.toString()}, Мана: ${this.mana}/${this.maxMana}`;
+    }
 }
