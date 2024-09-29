@@ -46,12 +46,12 @@ export class Monster {
 
     public attack(target: Person): void {
         const damage = this.strength; // A base attack based on strength
-        target.takeDamage(damage);
+        target.damage(damage);
         console.log(`${this.description} attacks ${target.toString()} for ${damage} damage.`);
     }
 
     public useMove(move: MonsterMove, target: Person): void {
-        target.takeDamage(move.damage);
+        target.damage(move.damage);
         console.log(`${this.description} uses ${move.name} on ${target.toString()} for ${move.damage} damage. ${move.description}`);
     }
 
