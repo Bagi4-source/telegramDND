@@ -3,8 +3,8 @@ import {Person} from "./Person";
 export class Rogue extends Person {
     private stealth: number;
 
-    constructor(hp: number, stealth: number, strength: number, agility: number, intelligence: number) {
-        super(hp, strength, agility, intelligence);
+    constructor(hp: number, stealth: number, strength: number, agility: number, intelligence: number, initiative: number) {
+        super(hp, strength, agility, intelligence, initiative);
         this.stealth = stealth;
     }
 
@@ -18,6 +18,6 @@ export class Rogue extends Person {
     }
 
     public toString() {
-        return `Плут: ${super.toString()}, Скрытность: ${this.stealth}`;
+        return `Rouge: ${super.toString()}, Stealth: ${this.stealth}`;
     }
 }

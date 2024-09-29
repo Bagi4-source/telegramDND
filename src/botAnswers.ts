@@ -1,3 +1,5 @@
+import {Player} from "./types";
+
 export const botAnswers = {
     alreadyStarted: "The game has already started. To end the game, type /endgame.",
     gameStarted: "The D&D game has begun! Add players using the /join command.",
@@ -18,7 +20,8 @@ Welcome to the D&D Telegram bot! Here is a list of available commands:
     `,
     player: {
         joined: (name: string, initiative: string | number) => `Player ${name} has joined the game with an initiative of ${initiative}.`,
-        alreadyJoined: (name: string) => `Player ${name} is already part of the game.`
+        alreadyJoined: (name: string) => `Player ${name} is already part of the game.`,
+        getState: (player: Player) => `Player ${player.name}: ${player.person.toString()}, initiative: ${player.initiative.toString()}`,
     },
     turn: {
         emptyPlayerOrder: "There are no players in the game.",

@@ -3,8 +3,8 @@ import {Person} from "./Person";
 export class Warrior extends Person {
     private armor: number;
 
-    constructor(hp: number, armor: number, strength: number, agility: number, intelligence: number) {
-        super(hp, strength, agility, intelligence);
+    constructor(hp: number, armor: number, strength: number, agility: number, intelligence: number, initiative: number) {
+        super(hp, strength, agility, intelligence, initiative);
         this.armor = armor;
     }
 
@@ -20,6 +20,6 @@ export class Warrior extends Person {
     }
 
     public toString() {
-        return `Воин: ${super.toString()}, Броня: ${this.armor}`;
+        return `Warrior: ${super.toString()}, Armor: ${this.armor}`;
     }
 }

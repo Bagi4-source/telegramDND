@@ -4,8 +4,8 @@ export class Mage extends Person {
     private mana: number;
     private readonly maxMana: number;
 
-    constructor(hp: number, mana: number, strength: number, agility: number, intelligence: number) {
-        super(hp, strength, agility, intelligence);
+    constructor(hp: number, mana: number, strength: number, agility: number, intelligence: number, initiative: number) {
+        super(hp, strength, agility, intelligence, initiative);
         this.maxMana = mana;
         this.mana = mana;
     }
@@ -24,6 +24,6 @@ export class Mage extends Person {
     }
 
     public toString() {
-        return `Маг: ${super.toString()}, Мана: ${this.mana}/${this.maxMana}`;
+        return `Mage: ${super.toString()}, Mana: ${this.mana}/${this.maxMana}`;
     }
 }

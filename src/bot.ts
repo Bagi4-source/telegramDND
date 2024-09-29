@@ -1,9 +1,9 @@
-import {Telegraf} from 'telegraf';
+import {Markup, Telegraf} from 'telegraf';
 import {BOT_TOKEN, OPENAI_API_KEY} from '../env';
 import {botAnswers} from "./botAnswers";
 import {GameState, Player} from "./types";
 import {DndLlm} from "./dnd/dndLlm";
-import {Person} from "./dnd/classes";
+import {Mage, Person, Rogue, Warrior} from "./dnd/classes";
 
 const bot = new Telegraf(BOT_TOKEN);
 
@@ -65,18 +65,55 @@ const dndLlm = new DndLlm({
             await ctx.reply(botAnswers.player.alreadyJoined(playerName));
             return;
         }
-
+        const initiative = Math.floor(Math.random() * 20) + 1;
         const newPlayer: Player = {
             id: playerId,
             name: playerName,
-            person: new Person(100, 100, 100, 100),
-            initiative: Math.floor(Math.random() * 20) + 1
+            person: new Person(100, 100, 100, 100, initiative),
+            initiative
         };
 
         gameStates[chatId].players[playerId] = newPlayer;
         gameStates[chatId].turnOrder.push(playerId);
 
-        await ctx.reply(botAnswers.player.joined(newPlayer.name, newPlayer.initiative));
+        await ctx.reply(botAnswers.player.joined(newPlayer.name, newPlayer.initiative), Markup.inlineKeyboard([
+            Markup.button.callback('Маг', 'class_mage'),
+            Markup.button.callback('Плут', 'class_rogue'),
+            Markup.button.callback('Воин', 'class_warrior')
+        ]));
+    });
+
+    bot.action(/class_(.+)/, async (ctx) => {
+        const chatId = ctx.chat?.id;
+        if (!chatId) return;
+        const playerId = ctx.from.id;
+        const className = ctx.match[1];
+
+        if (!gameStates[chatId]) {
+            await ctx.reply(botAnswers.notStarted);
+            return;
+        }
+
+        const player = gameStates[chatId].players[playerId];
+
+        if (player) {
+            switch (className) {
+                case 'mage':
+                    player.person = new Mage(100, 100, 5, 7, 15, player.initiative);
+                    break;
+                case 'rogue':
+                    player.person = new Rogue(100, 50, 6, 18, 10, player.initiative); // Задайте параметры для Плута
+                    break;
+                case 'warrior':
+                    player.person = new Warrior(100, 5, 20, 10, 3, player.initiative); // Задайте параметры для Воина
+                    break;
+                default:
+                    await ctx.reply("Ошибка: неверный класс.");
+                    return;
+            }
+            await ctx.deleteMessage();
+            await ctx.reply(botAnswers.player.getState(player));
+        }
     });
 
     // Команда для показа состояния игры
@@ -170,7 +207,6 @@ const dndLlm = new DndLlm({
         }
 
         const player = gameState.players[currentPlayerId];
-        console.log(player)
     });
 
     await bot.launch();

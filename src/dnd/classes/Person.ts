@@ -4,13 +4,15 @@ export class Person {
     protected strength: number;  // Сила
     protected agility: number;    // Ловкость
     protected intelligence: number; // Интеллект
+    protected initiative: number;
 
-    constructor(hp: number, strength: number, agility: number, intelligence: number) {
+    constructor(hp: number, strength: number, agility: number, intelligence: number, initiative: number) {
         this.maxHp = hp;
         this.hp = hp;
         this.strength = strength;
         this.agility = agility;
         this.intelligence = intelligence;
+        this.initiative = initiative;
     }
 
     public heal(hp: number) {
@@ -45,7 +47,11 @@ export class Person {
         return this.intelligence;
     }
 
+    public getInitiative() {
+        return this.initiative;
+    }
+
     public toString() {
-        return `HP: ${this.hp}/${this.maxHp}, Сила: ${this.strength}, Ловкость: ${this.agility}, Интеллект: ${this.intelligence}`;
+        return `HP: ${this.hp}/${this.maxHp}, Strength: ${this.strength}, Agility: ${this.agility}, Intelligence: ${this.intelligence}, Initiative: ${this.initiative}`;
     }
 }
