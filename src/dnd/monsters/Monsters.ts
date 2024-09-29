@@ -1,4 +1,4 @@
-import { Person } from './Person';  
+import { Person } from '../classes/Person';
 import { MonsterMove } from './MonsterMoves';  // Import MonsterMove interface
 
 export class Monster {
