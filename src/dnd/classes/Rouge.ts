@@ -1,23 +1,31 @@
-import {Person} from "./Person";
+
+import { Person } from "./Person";
 
 export class Rogue extends Person {
     private stealth: number;
 
-    constructor(maxhp : number, hp: number, stealth: number, strength: number, agility: number, intelligence: number, initiative: number) {
-        super(maxhp, hp, strength, agility, intelligence, initiative);
-        this.stealth = stealth;
+    constructor(
+        maxHp: number,
+        hp: number,
+        strength: number,
+        agility: number,
+        intelligence: number,
+        initiative: number
+    ) {
+        super(maxHp, hp, strength, agility, intelligence, initiative);
+        this.stealth = agility;  // Stealth is based on agility
     }
 
-    public sneakAttack() {
-        console.log("Наносит удар из тени!");
+    public getStealth(): number {
+        return this.stealth;
     }
 
-    public increaseStealth(amount: number) {
+    public increaseStealth(amount: number): void {
         this.stealth += amount;
-        console.log("Скрытность увеличена.");
+        console.log(`Stealth increased by ${amount}. New stealth: ${this.stealth}`);
     }
 
-    public toString() {
-        return `Rouge: ${super.toString()}, Stealth: ${this.stealth}`;
+    public toString(): string {
+        return `Rogue: ${super.toString()}, Stealth: ${this.stealth}`;
     }
 }

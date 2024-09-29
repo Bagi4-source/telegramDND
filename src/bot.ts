@@ -1,6 +1,6 @@
 // src/bot.ts
 
-import { Markup, Telegraf } from 'telegraf';
+import { Markup, Telegraf, Context } from 'telegraf';
 import { BOT_TOKEN, OPENAI_API_KEY } from '../env';
 import { botAnswers } from './botAnswers';
 import { GameState, Player } from './types';
@@ -8,6 +8,7 @@ import { DndLlm } from './dnd/dndLlm';
 import { Mage, Person, Rogue, Warrior } from './dnd/classes';
 import { Monster } from './dnd/monsters/Monsters'; // Ensure correct path
 import { generateRandomMonster } from './dnd/monsters/MonsterFactory'; // Ensure correct path
+import { shopItems } from './dnd/items'; // Import shop items
 
 const bot = new Telegraf(BOT_TOKEN);
 
@@ -27,6 +28,111 @@ function mockDungeonDescription(): string {
     return `The dungeon looms before you, dark and foreboding. The air is thick with the scent of danger. You feel a shiver down your spine as you prepare to enter.`;
 }
 
+// Helper Functions
+function validateCombatState(ctx: Context, chatId: number | undefined, playerId: number): boolean {
+    if (chatId === undefined) {
+        ctx.reply("Error: Unable to determine chat ID.");
+        return false;
+    }
+
+    const gameState = gameStates[chatId];
+    if (!gameState) {
+        ctx.reply(botAnswers.notStarted);
+        return false;
+    }
+
+    const player = gameState.players[playerId];
+    if (!player) {
+        ctx.reply("You are not part of the current game.");
+        return false;
+    }
+
+    if (!gameState.currentMonster) {
+        ctx.reply("There is no monster to fight.");
+        return false;
+    }
+
+    return true;
+}
+
+function calculatePlayerDamage(player: Player): number {
+    if (player.person instanceof Rogue) {
+        return player.person.getStealth();
+    } else {
+        return player.person.getStrength();
+    }
+}
+
+interface Spell {
+    name: string;
+    damage: number;
+    manaCost: number;
+}
+
+function getSpellByName(name: string): Spell | null {
+    const spells: Spell[] = [
+        { name: 'Magic Bolt', damage: 15, manaCost: 10 },
+        { name: 'Fire Rays', damage: 20, manaCost: 15 },
+        { name: 'Cold Hand', damage: 10, manaCost: 5 },
+    ];
+    return spells.find(spell => spell.name.toLowerCase().replace(' ', '_') === name) || null;
+}
+
+async function initiateCombat(ctx: Context, player: Player, monster: Monster, gameState: GameState) {
+    await ctx.reply(`Combat begins between ${player.name} and ${monster.getDescription()}!`);
+    await presentCombatOptions(ctx, player, monster);
+}
+
+async function presentCombatOptions(ctx: Context, player: Player, monster: Monster) {
+    const buttons = [];
+
+    // All players can attack
+    buttons.push(Markup.button.callback('Attack', 'combat_attack'));
+
+    // Mages with mana can cast spells
+    if (player.person instanceof Mage && player.person.getMana() > 0) {
+        buttons.push(Markup.button.callback('Cast Spell', 'combat_cast_spell'));
+    }
+
+    // Players with armor can block
+    if (player.person instanceof Warrior && player.person.hasArmor()) {
+        buttons.push(Markup.button.callback('Block', 'combat_block'));
+    }
+
+    // Rogues can attack twice - handled in combat_attack
+
+    await ctx.reply(`Choose your action:`, Markup.inlineKeyboard(buttons));
+}
+
+async function monsterTurn(ctx: Context, player: Player, monster: Monster, gameState: GameState) {
+    // Monster decides to attack
+    const damage = monster.getStrength();
+    let actualDamage = damage;
+
+    // Check if player is blocking (only Warriors can block)
+    if (player.person instanceof Warrior && player.person.isBlocking()) {
+        actualDamage = Math.max(0, damage - player.person.getArmor());
+        await ctx.reply(`${player.name} blocks the attack, reducing damage to ${actualDamage}.`);
+    }
+
+    player.person.damage(actualDamage);
+    await ctx.reply(`${monster.getDescription()} attacks ${player.name} for ${actualDamage} damage.`);
+
+    // Check if player is defeated
+    if (player.person.getHp() <= 0) {
+        await ctx.reply(`${player.name} has been defeated by the monster!`);
+        // Remove player from game
+        delete gameState.players[player.id];
+        gameState.turnOrder = gameState.turnOrder.filter(id => id !== player.id);
+        await ctx.reply(botAnswers.player.defeated(player.name));
+        return;
+    }
+
+    // Present combat options again
+    await presentCombatOptions(ctx, player, monster);
+}
+
+// Command Handlers
 (async () => {
     await bot.telegram.setMyCommands([
         { command: 'start', description: 'Start the bot and get a welcome message' },
@@ -36,7 +142,9 @@ function mockDungeonDescription(): string {
         { command: 'state', description: 'Display the current state of the game' },
         { command: 'turn', description: 'Move to the next player\'s turn' },
         { command: 'endgame', description: 'End the current game' },
-        { command: 'narrate', description: 'Get a narration of the game from AI' }
+        { command: 'narrate', description: 'Get a narration of the game from AI' },
+        { command: 'shop', description: 'Visit the shop to buy items' },
+        { command: 'inventory', description: 'View your inventory and use items' },
     ]);
 
     bot.start(async (ctx) => {
@@ -54,7 +162,8 @@ function mockDungeonDescription(): string {
             gameStates[chatId] = {
                 players: {},
                 turnOrder: [],
-                currentTurn: 0
+                currentTurn: 0,
+                currentMonster: null,
             };
             await ctx.reply(botAnswers.gameStarted);
         } else {
@@ -186,26 +295,16 @@ function mockDungeonDescription(): string {
             const monster = generateRandomMonster();
             await ctx.reply(`You encounter a monster! ${monster.toString()}`);
 
-            // Here, you can implement combat logic or further interactions
-            // For simplicity, let's assume the monster attacks the player
-            monster.attack(player.person);
+            // Save the monster to the game state
+            gameState.currentMonster = monster;
 
-            // Check if player is dead
-            if (player.person.getHp() <= 0) {
-                await ctx.reply(`${player.name} has been defeated by the monster!`);
-                // Optionally, remove the player from the game or end the game
-                delete gameState.players[playerId];
-                gameState.turnOrder = gameState.turnOrder.filter(id => id !== playerId);
-                await ctx.reply(botAnswers.player.defeated(player.name));
-            } else {
-                await ctx.reply(`${player.name} has ${player.person.getHp()} HP remaining.`);
-            }
+            // Begin combat
+            await initiateCombat(ctx, player, monster, gameState);
         } else {
             // Outcome 2: Find treasure
-            await ctx.reply("You find a hidden treasure chest filled with gold!");
-            // Optionally, update player stats or inventory
-            // For example, increase player's gold
-            // player.gold += 100; // Ensure Player interface has a 'gold' property
+            const goldFound = Math.floor(Math.random() * 100) + 50;  // Random gold between 50 and 149
+            player.person.addGold(goldFound);
+            await ctx.reply(`You find a hidden treasure chest containing ${goldFound} gold! You now have ${player.person.getGold()} gold.`);
         }
     });
 
@@ -232,108 +331,309 @@ function mockDungeonDescription(): string {
 
         await ctx.reply(`You take a moment to rest and recover your strength.`);
 
-        // Optionally, restore player's HP
+        // Restore player's HP
         player.person.restoreHp(); // Ensure the Person class has a restoreHp method
         await ctx.reply(`${player.name} now has ${player.person.getHp()} HP.`);
     });
 
-    // Команда для показа состояния игры
-    bot.command('state', async (ctx) => {
-        const chatId: number = ctx.chat.id; // chatId is number
+    // Implement the '/shop' command
+    bot.command('shop', async (ctx) => {
+        const chatId = ctx.chat?.id;
+        const playerId = ctx.from.id;
 
-        if (!gameStates[chatId]) {
-            await ctx.reply(botAnswers.notStarted);
+        if (chatId === undefined) {
+            await ctx.reply("Error: Unable to determine chat ID.");
             return;
         }
 
         const gameState = gameStates[chatId];
-        const playerStates = Object.values(gameState.players)
-            .map(player => `${player.name}: ${player.person.toString()}, Initiative ${player.initiative}`)
-            .join('\n');
-
-        await ctx.reply(`Состояние игры:\n${playerStates}`);
-    });
-
-    // Команда для окончания игры
-    bot.command('endgame', async (ctx) => {
-        const chatId: number = ctx.chat.id; // chatId is number
-
-        if (gameStates[chatId]) {
-            delete gameStates[chatId];
-            await ctx.reply(botAnswers.endGame.success);
-        } else {
-            await ctx.reply(botAnswers.endGame.notStarted);
-        }
-    });
-
-    // Команда для хода игрока
-    bot.command('turn', async (ctx) => {
-        const chatId: number = ctx.chat.id; // chatId is number
-
-        if (!gameStates[chatId]) {
+        if (!gameState) {
             await ctx.reply(botAnswers.notStarted);
             return;
         }
 
-        const gameState = gameStates[chatId];
-        if (gameState.turnOrder.length === 0) {
-            await ctx.reply(botAnswers.turn.emptyPlayerOrder);
+        const player = gameState.players[playerId];
+        if (!player) {
+            await ctx.reply("You are not part of the current game.");
             return;
         }
 
-        const currentTurn = gameState.currentTurn;
-        const currentPlayerId = gameState.turnOrder[currentTurn];
-        const player = gameState.players[currentPlayerId];
-
-        await ctx.reply(botAnswers.turn.playerTurn(player.name));
-
-        gameState.currentTurn = (currentTurn + 1) % gameState.turnOrder.length;
-    });
-
-    bot.command('narrate', async (ctx) => {
-        const chatId: number = ctx.chat.id; // chatId is number
-
-        if (!gameStates[chatId]) {
-            await ctx.reply(botAnswers.notStarted);
-            return;
-        }
-        await ctx.sendChatAction('typing');
-
-        const gameState = gameStates[chatId];
-        const narration = await dndLlm.getNarration(
-            Object.values(gameState.players),
-            gameState.players[gameState.turnOrder[gameState.currentTurn]]
+        // Present shop items
+        const itemButtons = shopItems.map(item =>
+            [Markup.button.callback(`${item.name} - ${item.value} gold`, `buy_${item.id}`)]
         );
 
-        await ctx.reply(narration);
+        await ctx.reply("Welcome to the shop! Here are the items available:", Markup.inlineKeyboard(itemButtons));
     });
 
-    bot.on('text', async (ctx) => {
-        const chatId: number = ctx.chat.id; // chatId is number
-        const userId = ctx.from.id;
+    // Handle buying items
+    bot.action(/buy_(.+)/, async (ctx) => {
+        const chatId = ctx.chat?.id;
+        const playerId = ctx.from.id;
+        const itemIdStr = ctx.match?.[1];
 
-        if (!gameStates[chatId]) {
-            await ctx.reply(botAnswers.notStarted);
+        if (chatId === undefined) {
+            await ctx.reply("Error: Unable to determine chat ID.");
             return;
         }
 
         const gameState = gameStates[chatId];
-        if (gameState.turnOrder.length === 0) {
-            await ctx.reply(botAnswers.turn.emptyPlayerOrder);
+        if (!gameState) {
+            await ctx.reply(botAnswers.notStarted);
             return;
         }
 
-        const currentTurn = gameState.currentTurn;
-        const currentPlayerId = gameState.turnOrder[currentTurn];
-
-        if (currentPlayerId !== userId) {
-            await ctx.reply(botAnswers.turn.anotherPlayerTurn);
+        const player = gameState.players[playerId];
+        if (!player) {
+            await ctx.reply("You are not part of the current game.");
             return;
         }
 
-        const player = gameState.players[currentPlayerId];
-        // Here you can add logic for processing the player's text input
+        const itemId = parseInt(itemIdStr!);
+        const item = shopItems.find(item => item.id === itemId);
+
+        if (!item) {
+            await ctx.reply("This item does not exist.");
+            return;
+        }
+
+        // Check if player has enough gold
+        if (player.person.getGold() >= item.value) {
+            player.person.subtractGold(item.value);
+            player.person.addItem(item);
+            await ctx.reply(`You have purchased ${item.name} for ${item.value} gold. You now have ${player.person.getGold()} gold.`);
+        } else {
+            await ctx.reply(`You do not have enough gold to purchase ${item.name}. It costs ${item.value} gold, but you only have ${player.person.getGold()} gold.`);
+        }
     });
+
+    // Implement the '/inventory' command
+    bot.command('inventory', async (ctx) => {
+        const chatId = ctx.chat?.id;
+        const playerId = ctx.from.id;
+
+        if (chatId === undefined) {
+            await ctx.reply("Error: Unable to determine chat ID.");
+            return;
+        }
+
+        const gameState = gameStates[chatId];
+        if (!gameState) {
+            await ctx.reply(botAnswers.notStarted);
+            return;
+        }
+
+        const player = gameState.players[playerId];
+        if (!player) {
+            await ctx.reply("You are not part of the current game.");
+            return;
+        }
+
+        const inventory = player.person.getInventory();
+        if (inventory.length === 0) {
+            await ctx.reply("Your inventory is empty.");
+            return;
+        }
+
+        const itemButtons = inventory.map(item =>
+            [Markup.button.callback(`${item.name}`, `use_${item.id}`)]
+        );
+
+        await ctx.reply("Your inventory:", Markup.inlineKeyboard(itemButtons));
+    });
+
+    // Handle using items
+    bot.action(/use_(.+)/, async (ctx) => {
+        const chatId = ctx.chat?.id;
+        const playerId = ctx.from.id;
+        const itemIdStr = ctx.match?.[1];
+
+        if (chatId === undefined) {
+            await ctx.reply("Error: Unable to determine chat ID.");
+            return;
+        }
+
+        const gameState = gameStates[chatId];
+        if (!gameState) {
+            await ctx.reply(botAnswers.notStarted);
+            return;
+        }
+
+        const player = gameState.players[playerId];
+        if (!player) {
+            await ctx.reply("You are not part of the current game.");
+            return;
+        }
+
+        const itemId = parseInt(itemIdStr!);
+        const item = player.person.getInventory().find(item => item.id === itemId);
+
+        if (!item) {
+            await ctx.reply("You do not have this item in your inventory.");
+            return;
+        }
+
+        // Use the item
+        player.person.useItem(itemId);
+        await ctx.reply(`You have used ${item.name}.`);
+    });
+
+    // Single 'class' action handler already defined above
+
+    // Handle 'combat_attack', 'combat_cast_spell', 'combat_block'
+    bot.action('combat_attack', async (ctx) => {
+        const chatId = ctx.chat?.id;
+        const playerId = ctx.from.id;
+
+        if (!validateCombatState(ctx, chatId, playerId)) return;
+
+        const gameState = gameStates[chatId!];
+        const player = gameState.players[playerId];
+        const monster = gameState.currentMonster!;
+
+        let attackTimes = 1;
+
+        // Rogues can attack twice
+        if (player.person instanceof Rogue) {
+            attackTimes = 2;
+        }
+
+        for (let i = 0; i < attackTimes; i++) {
+            // Calculate damage
+            const damage = calculatePlayerDamage(player);
+            monster.takeDamage(damage);
+            await ctx.reply(`${player.name} attacks ${monster.getDescription()} for ${damage} damage.`);
+        }
+
+        // Check if monster is defeated
+        if (monster.getHp() <= 0) {
+            await ctx.reply(`${monster.getDescription()} has been defeated!`);
+            // Increase player's strength or stealth
+            if (player.person instanceof Rogue) {
+                player.person.increaseStealth(1);
+            } else {
+                player.person.increaseStrength(1);
+            }
+            await ctx.reply(`${player.name}'s stats have increased!`);
+            // Remove monster from game state
+            gameState.currentMonster = null;
+            return;
+        }
+
+        // Monster's turn
+        await monsterTurn(ctx, player, monster, gameState);
+    });
+
+    bot.action('combat_cast_spell', async (ctx) => {
+        const chatId = ctx.chat?.id;
+        const playerId = ctx.from.id;
+
+        if (!validateCombatState(ctx, chatId, playerId)) return;
+
+        const gameState = gameStates[chatId!];
+        const player = gameState.players[playerId];
+        const monster = gameState.currentMonster!;
+
+        if (!(player.person instanceof Mage)) {
+            await ctx.reply("Only Mages can cast spells!");
+            return;
+        }
+
+        // Present spell options
+        await ctx.reply(`Choose a spell:`, Markup.inlineKeyboard([
+            Markup.button.callback('Magic Bolt', 'spell_magic_bolt'),
+            Markup.button.callback('Fire Rays', 'spell_fire_rays'),
+            Markup.button.callback('Cold Hand', 'spell_cold_hand'),
+        ]));
+    });
+
+    bot.action(/spell_(.+)/, async (ctx) => {
+        const spellName = ctx.match?.[1];
+        const chatId = ctx.chat?.id;
+        const playerId = ctx.from.id;
+
+        if (!validateCombatState(ctx, chatId, playerId)) return;
+
+        const gameState = gameStates[chatId!];
+        const player = gameState.players[playerId];
+        const monster = gameState.currentMonster!;
+
+        if (!(player.person instanceof Mage)) {
+            await ctx.reply("Only Mages can cast spells!");
+            return;
+        }
+
+        const spell = getSpellByName(spellName!);
+        if (!spell) {
+            await ctx.reply("Invalid spell selected.");
+            return;
+        }
+
+        if (player.person.getMana() < spell.manaCost) {
+            await ctx.reply("Not enough mana to cast this spell.");
+            return;
+        }
+
+        // Cast spell
+        player.person.useMana(spell.manaCost);
+        monster.takeDamage(spell.damage);
+        await ctx.reply(`${player.name} casts ${spell.name}, dealing ${spell.damage} damage to ${monster.getDescription()}.`);
+
+        // 50% chance to increase intelligence by 1
+        if (Math.random() < 0.5) {
+            player.person.increaseIntelligence(1);
+            await ctx.reply(`${player.name}'s intelligence has increased by 1!`);
+        }
+
+        // Check if monster is defeated
+        if (monster.getHp() <= 0) {
+            await ctx.reply(`${monster.getDescription()} has been defeated!`);
+            // Increase player's strength or stealth
+            player.person.increaseStrength(1);
+            await ctx.reply(`${player.name}'s strength has increased by 1!`);
+            // Remove monster from game state
+            gameState.currentMonster = null;
+            return;
+        }
+
+        // Monster's turn
+        await monsterTurn(ctx, player, monster, gameState);
+    });
+
+    bot.action('combat_block', async (ctx) => {
+        const chatId = ctx.chat?.id;
+        const playerId = ctx.from.id;
+
+        if (!validateCombatState(ctx, chatId, playerId)) return;
+
+        const gameState = gameStates[chatId!];
+        const player = gameState.players[playerId];
+        const monster = gameState.currentMonster!;
+
+        if (!(player.person instanceof Warrior)) {
+            await ctx.reply("Only Warriors can block!");
+            return;
+        }
+
+        player.person.setBlocking(true);
+        await ctx.reply(`${player.name} is blocking incoming attacks.`);
+
+        // Monster's turn
+        await monsterTurn(ctx, player, monster, gameState);
+
+        // Reset blocking status
+        player.person.setBlocking(false);
+    });
+
+    // Combat Helpers in Person Class
+    // Add these methods to Person class if not already present
+    // public setBlocking(status: boolean): void {
+    //     this.isBlocking = status;
+    // }
+
+    // public isBlocking(): boolean {
+    //     return this.isBlocking;
+    // }
 
     await bot.launch();
 
