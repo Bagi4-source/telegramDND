@@ -3,9 +3,9 @@ import {Person} from "./Person";
 export class Warrior extends Person {
     private armor: number;
 
-    constructor(hp: number, armor: number, strength: number, agility: number, intelligence: number, initiative: number) {
-        super(hp, strength, agility, intelligence, initiative);
-        this.armor = armor;
+    constructor(maxhp : number, hp: number, stealth: number, strength: number, agility: number, intelligence: number, initiative: number) {
+        super(maxhp, hp, strength, agility, intelligence, initiative);
+        this.armor = stealth;
     }
 
     public defend(damage: number) {

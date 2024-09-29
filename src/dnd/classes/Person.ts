@@ -1,13 +1,22 @@
-export class Person {
-    private readonly maxHp: number;
-    protected hp: number;
-    protected strength: number;  // Сила
-    protected agility: number;    // Ловкость
-    protected intelligence: number; // Интеллект
-    protected initiative: number;
+// src/classes/Person.ts
 
-    constructor(hp: number, strength: number, agility: number, intelligence: number, initiative: number) {
-        this.maxHp = hp;
+export class Person {
+    private maxHp: number;
+    private hp: number;
+    private strength: number;
+    private agility: number;
+    private intelligence: number;
+    private initiative: number;
+
+    constructor(
+        maxHp: number,
+        hp: number,
+        strength: number,
+        agility: number,
+        intelligence: number,
+        initiative: number
+    ) {
+        this.maxHp = maxHp;
         this.hp = hp;
         this.strength = strength;
         this.agility = agility;
@@ -15,43 +24,42 @@ export class Person {
         this.initiative = initiative;
     }
 
-    public heal(hp: number) {
-        this.hp = Math.min(this.hp + hp, this.maxHp);
+    public damage(amount: number): void {
+        this.hp -= amount;
+        if (this.hp < 0) this.hp = 0;
+        console.log(`Person takes ${amount} damage. Remaining HP: ${this.hp}`);
     }
 
-    public damage(hp: number) {
-        if (this.hp - hp < 0) {
-            this.dead();
-        } else {
-            this.hp -= hp;
-        }
+    public restoreHp(): void {
+        this.hp = this.maxHp;
+        console.log(`Person restores to full HP: ${this.hp}`);
     }
 
-    public dead() {
-        console.log("Монстр мертв.");
-    }
-
-    public getHp() {
+    public getHp(): number {
         return this.hp;
     }
 
-    public getStrength() {
+    public getMaxHp(): number {
+        return this.maxHp;
+    }
+
+    public getStrength(): number {
         return this.strength;
     }
 
-    public getAgility() {
+    public getAgility(): number {
         return this.agility;
     }
 
-    public getIntelligence() {
+    public getIntelligence(): number {
         return this.intelligence;
     }
 
-    public getInitiative() {
+    public getInitiative(): number {
         return this.initiative;
     }
 
-    public toString() {
-        return `HP: ${this.hp}/${this.maxHp}, Strength: ${this.strength}, Agility: ${this.agility}, Intelligence: ${this.intelligence}, Initiative: ${this.initiative}`;
+    public toString(): string {
+        return `HP: ${this.hp}/${this.maxHp}`;
     }
 }

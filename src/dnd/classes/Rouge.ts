@@ -3,8 +3,8 @@ import {Person} from "./Person";
 export class Rogue extends Person {
     private stealth: number;
 
-    constructor(hp: number, stealth: number, strength: number, agility: number, intelligence: number, initiative: number) {
-        super(hp, strength, agility, intelligence, initiative);
+    constructor(maxhp : number, hp: number, stealth: number, strength: number, agility: number, intelligence: number, initiative: number) {
+        super(maxhp, hp, strength, agility, intelligence, initiative);
         this.stealth = stealth;
     }
 

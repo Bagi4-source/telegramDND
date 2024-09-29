@@ -1,5 +1,10 @@
 import { Person } from '../classes/Person';
-import { MonsterMove } from './MonsterMoves';  // Import MonsterMove interface
+
+export interface MonsterMove {
+    name: string;
+    damage: number;
+    description: string;
+}
 
 export class Monster {
     private readonly maxHp: number;
