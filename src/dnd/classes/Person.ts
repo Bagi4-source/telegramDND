@@ -28,7 +28,7 @@ export class Person {
     }
 
     public dead() {
-        console.log("Персонаж мертв.");
+        console.log("Монстр мертв.");
     }
 
     public getHp() {

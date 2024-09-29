@@ -1,5 +1,5 @@
 import {Person} from "./dnd/classes";
-
+import { MonsterMove } from "./dnd/monsters/MonsterMoves";
 export interface GameState {
     players: { [key: string | number]: Player };
     turnOrder: (string | number)[];
@@ -24,8 +24,3 @@ export interface Monster {
     useMove(move: MonsterMove, target: Monster): void;
 }
 
-export interface MonsterMove {
-    name: string;
-    damage: number;
-    description: string;
-}
