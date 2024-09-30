@@ -7,7 +7,7 @@ import {Mage, Person, Rogue, Warrior} from "./dnd/classes";
 
 const bot = new Telegraf(BOT_TOKEN);
 
-
+// toDo(redis memo)
 const gameStates: { [chatId: string]: GameState } = {};
 
 const dndLlm = new DndLlm({
